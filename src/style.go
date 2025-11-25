@@ -15,6 +15,14 @@ var (
 	InactiveBorderColor = lipgloss.Color("250") // Gris clair pour l'état inactif
 )
 
+// --- Palette de Couleurs (Nerd Fonts friendly) ---
+var (
+	FocusColor    = lipgloss.Color("205") // Violet/Magenta
+	InactiveColor = lipgloss.Color("250") // Gris clair
+	GreenColor    = lipgloss.Color("43")  // Vert Matrix
+	SubTextColor  = lipgloss.Color("241") // Gris foncé
+	WhiteColor    = lipgloss.Color("#FFFDF5")
+)
 var (
 	appStyle = lipgloss.NewStyle().Padding(GeneralSpacing)
 
@@ -35,4 +43,8 @@ var (
 	// Styles pour les options d'encodage
 	activeOptionStyle   = lipgloss.NewStyle().Foreground(FocusBorderColor).Bold(true)
 	inactiveOptionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	// Pied de page (Barre de statut)
+	HelpStyle = lipgloss.NewStyle().
+			Foreground(SubTextColor).
+			Italic(true)
 )

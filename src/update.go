@@ -5,8 +5,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// --- Update ---
-
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
@@ -16,7 +14,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		// NAVIGATION BLOCS (TAB)
+		// Navigation entre les blocs
 		case "tab", "shift+tab":
 			if m.ActiveBlock == 0 {
 				m.ActiveBlock = 1
@@ -34,9 +32,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Gestion spécifique par bloc
+		// Gestion par bloc actif
 		if m.ActiveBlock == 0 {
-			// BLOC GAUCHE: Inputs (Gère 'up' et 'down' pour changer de champ)
+			// Bloc Inputs
 			switch msg.String() {
 			case "up":
 				m.InputIndex = 0
@@ -44,7 +42,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.InputIndex = 1
 			}
 
-			// Applique le focus
 			if m.InputIndex == 0 {
 				m.Inputs[0].Focus()
 				m.Inputs[1].Blur()
@@ -52,12 +49,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Inputs[0].Blur()
 				m.Inputs[1].Focus()
 			}
-			// NOTE: Ne pas retourner ici pour que m.updateInputs(msg) gère la saisie de texte.
-
 		} else {
-			// BLOC DROITE: Liste + Hotkeys Encodage
+			// Bloc Liste & Options
 			switch msg.String() {
-			// Raccourcis Encodage
 			case "n", "N":
 				m.Encoding = None
 			case "b", "B":
@@ -66,8 +60,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Encoding = URL
 			case "d", "D":
 				m.Encoding = DoubleURL
-
-			// Navigation Liste (gestion par défaut des flèches)
 			default:
 				var cmd tea.Cmd
 				m.ShellList, cmd = m.ShellList.Update(msg)
@@ -81,10 +73,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
+		// Ajustement approximatif, le vrai calcul est dans View
 		m.ShellList.SetWidth((msg.Width / 2) - 10)
 	}
 
-	// Met à jour les textinputs (NÉCESSAIRE POUR LA SAISIE DE TEXTE)
+	// Mise à jour des inputs (toujours nécessaire pour le curseur/texte)
 	cmd := m.updateInputs(msg)
 	cmds = append(cmds, cmd)
 
