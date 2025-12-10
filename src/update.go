@@ -14,7 +14,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		// Navigation entre les blocs
 		case "tab", "shift+tab":
 			if m.ActiveBlock == 0 {
 				m.ActiveBlock = 1
@@ -32,10 +31,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Gestion par bloc actif
 		if m.ActiveBlock == 0 {
-			// Bloc Inputs
 			switch msg.String() {
+
+			// Cycle à travers les interfaces (IP + Nom)
+			case "ctrl+n":
+				if m.InputIndex == 0 && len(m.Interfaces) > 0 {
+					m.CurrentInterface = (m.CurrentInterface + 1) % len(m.Interfaces)
+
+					selectedIface := m.Interfaces[m.CurrentInterface]
+
+					m.Inputs[0].SetValue(selectedIface.IP)
+					m.Inputs[0].SetCursor(len(selectedIface.IP))
+				}
+
 			case "up":
 				m.InputIndex = 0
 			case "down", "enter":
@@ -50,7 +59,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Inputs[1].Focus()
 			}
 		} else {
-			// Bloc Liste & Options
+			// Bloc Liste (inchangé)
 			switch msg.String() {
 			case "n", "N":
 				m.Encoding = None
@@ -73,11 +82,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.Width = msg.Width
 		m.Height = msg.Height
-		// Ajustement approximatif, le vrai calcul est dans View
 		m.ShellList.SetWidth((msg.Width / 2) - 10)
 	}
 
-	// Mise à jour des inputs (toujours nécessaire pour le curseur/texte)
 	cmd := m.updateInputs(msg)
 	cmds = append(cmds, cmd)
 

@@ -9,8 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Déclarations des variables et constantes globales définies dans model.go.
-
 // --- Logique Métier ---
 
 func (m Model) generatePayload() (string, string) {
@@ -59,13 +57,11 @@ func renderBlock(title string, content string, isActive bool, contentWidth, cont
 	style := baseBlockStyle.Copy()
 
 	// Choix de la couleur en fonction de l'état actif
-	borderColor := InactiveColor
+	borderColor := InactiveBorderColor
 	if isActive {
-		borderColor = FocusColor
+		borderColor = FocusBorderColor
 	}
 
-	// NOTE: Si vous avez mis à jour lipgloss vers v0.10.0+, vous pouvez utiliser BorderTitle ici.
-	// Sinon, cette version fonctionne avec les anciennes versions (titre géré par le contenu ou ignoré pour l'instant).
 	block := style.
 		BorderForeground(borderColor). // Applique la couleur à la bordure
 		Width(contentWidth).
@@ -86,7 +82,7 @@ func (m Model) View() string {
 	// On définit la hauteur du footer
 	footerHeight := 1
 
-	usableWidth := m.Width // - appDecoration
+	usableWidth := m.Width
 	usableHeight := m.Height - appDecoration
 
 	blockVerticalDecoration := 2 * (GeneralSpacing + 1) // Bordure verticale + Padding
@@ -114,7 +110,7 @@ func (m Model) View() string {
 
 	m.ShellList.SetWidth(optionsBlockWidth - (2 * GeneralSpacing))
 
-	encLine := fmt.Sprintf("%s  %s  %s  %s",
+	encLine := fmt.Sprintf("%s  %s  %s  %s\n",
 		renderOption("[N]one", m.Encoding == None),
 		renderOption("[B]ase64", m.Encoding == Base64),
 		renderOption("[U]rl", m.Encoding == URL),
@@ -124,7 +120,7 @@ func (m Model) View() string {
 	optionsContent := lipgloss.JoinVertical(
 		lipgloss.Left,
 		m.ShellList.View(),
-		labelStyle.Render("Encoding"),
+		labelStyle.Render("Encoding\n"),
 		encLine,
 	)
 
@@ -142,12 +138,35 @@ func (m Model) View() string {
 
 	topRowHeight := targetContentHeight + blockVerticalDecoration
 
-	// --- Bloc 1 : Configuration (Ajustement du padding) ---
+	// --- Bloc 1 : Configuration (MODIFIÉ POUR LES INTERFACES) ---
+
+	// 1. On récupère l'IP actuelle du champ texte
+	currentIP := m.Inputs[0].Value()
+	interfaceLabel := ""
+	foundIface := false
+
+	// 2. On compare avec nos interfaces détectées
+	for _, iface := range m.Interfaces {
+		if iface.IP == currentIP {
+			// Si on trouve une correspondance, on affiche le nom en vert (ex: "󰈀 eth0")
+			interfaceLabel = lipgloss.NewStyle().Foreground(GreenColor).Render(fmt.Sprintf("󰾲 %s", iface.Name))
+			foundIface = true
+			break
+		}
+	}
+
+	// 3. Gestion du texte d'aide si on ne trouve pas ou pour rappeler le raccourci
+	if !foundIface && len(m.Interfaces) > 0 {
+		interfaceLabel = labelStyle.Render("(Ctrl+n: Switch Interface)")
+	} else if !foundIface {
+		interfaceLabel = labelStyle.Render("(No network interfaces detected)")
+	}
 
 	configContent := lipgloss.JoinVertical(
 		lipgloss.Left,
 		labelStyle.Render("Listenner settings\n"),
 		m.Inputs[0].View(),
+		interfaceLabel,
 		labelStyle.Render("\n"),
 		m.Inputs[1].View(),
 		labelStyle.Render("(Default: 9001)"),
@@ -156,19 +175,25 @@ func (m Model) View() string {
 	currentConfigHeight := lipgloss.Height(configContent)
 	verticalPaddingToAdd := targetContentHeight - currentConfigHeight
 
+	// CORRECTION ICI : On retire 1 au padding pour éviter le saut de ligne fantôme
+	safePadding := verticalPaddingToAdd - 1
+	if safePadding < 0 {
+		safePadding = 0
+	}
+
 	paddedConfigContent := lipgloss.JoinVertical(
 		lipgloss.Left,
 		configContent,
-		strings.Repeat("\n", verticalPaddingToAdd-1),
+		strings.Repeat("\n", safePadding),
 	)
 
+	// On passe quand même targetContentHeight au renderBlock,
+	// Lipgloss comblera proprement l'espace restant sans dépasser.
 	configBlock := renderBlock("Configuration", paddedConfigContent, m.ActiveBlock == 0, configBlockWidth, targetContentHeight)
-
 	// --- Bloc 2 : Payloads & Options ---
 	optionsBlock := renderBlock("Payloads & Options", optionsContent, m.ActiveBlock == 1, optionsBlockWidth, targetContentHeight)
 
 	// 3. CALCUL DE LA HAUTEUR DU BLOC DU BAS (Output Large)
-	// IMPORTANT : On soustrait footerHeight ici pour laisser la place en bas
 	outputContentHeight := usableHeight - topRowHeight - GeneralSpacing - footerHeight
 
 	if outputContentHeight < 1 {
@@ -204,9 +229,7 @@ func (m Model) View() string {
 
 	verticalSpacer := lipgloss.NewStyle().Height(1).Width(usableWidth).Render("")
 
-	// 4. foooter
-	// Assurez-vous que HelpStyle est défini dans style.go, sinon remplacez par labelStyle
-	helpBar := HelpStyle.Render("\n\n 󰌒  Tab: Switch Block   •     Ctrl+Y: Copy Payload   •   󰅚  q: Quit")
+	helpBar := HelpStyle.Render("\n\n 󰌒  Tab: Switch Block   •     Ctrl+y: Copy Payload   •   󰈆  q: Quit   •   󰾲  Ctrl+n: Switch Interface")
 
 	return appStyle.Render(
 		lipgloss.JoinVertical(

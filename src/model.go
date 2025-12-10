@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
@@ -11,8 +12,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
-
-// --- Styles et Variables Globales ---
 
 // --- Structures ---
 
@@ -41,6 +40,12 @@ const (
 	DoubleURL
 )
 
+// NOUVELLE STRUCTURE : Pour stocker le nom de la carte et son IP
+type NetworkInterface struct {
+	Name string
+	IP   string
+}
+
 type Model struct {
 	Inputs []textinput.Model
 
@@ -52,14 +57,58 @@ type Model struct {
 	SelectedShell Shell
 	Encoding      EncodingType
 
+	// Modification ici : On stocke des objets NetworkInterface au lieu de strings
+	Interfaces       []NetworkInterface
+	CurrentInterface int
+
 	Width  int
 	Height int
+}
+
+// --- Helpers ---
+
+// getNetworkInterfaces scanne les cartes et retourne le couple (Nom, IP)
+func getNetworkInterfaces() []NetworkInterface {
+	var results []NetworkInterface
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return []NetworkInterface{{Name: "lo", IP: "127.0.0.1"}}
+	}
+
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			// On garde IPv4 et on ignore loopback pour l'affichage principal (sauf si rien d'autre)
+			if ip != nil && ip.To4() != nil && !ip.IsLoopback() {
+				results = append(results, NetworkInterface{
+					Name: i.Name,
+					IP:   ip.String(),
+				})
+			}
+		}
+	}
+
+	// Fallback si rien trouvé (offline)
+	if len(results) == 0 {
+		results = append(results, NetworkInterface{Name: "local", IP: "127.0.0.1"})
+	}
+	return results
 }
 
 // --- Initialisation ---
 
 func initialModel() Model {
-	// 1. Charger le JSON depuis le fichier shells.json
 	greenPromptStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("43"))
 	data, err := os.ReadFile("shells.json")
 	if err != nil {
@@ -73,10 +122,15 @@ func initialModel() Model {
 		os.Exit(1)
 	}
 
-	// 2. Initialisation des inputs IP/Port
+	// 2. Détection des Interfaces
+	netIfaces := getNetworkInterfaces()
+	defaultIface := netIfaces[0]
+
+	// 3. Initialisation des inputs
 	inputs := make([]textinput.Model, 2)
 	inputs[0] = textinput.New()
 	inputs[0].Placeholder = "10.10.10.10"
+	inputs[0].SetValue(defaultIface.IP) // Valeur par défaut
 	inputs[0].Focus()
 	inputs[0].Prompt = "Listener IP: "
 	inputs[0].CharLimit = 15
@@ -88,14 +142,12 @@ func initialModel() Model {
 	inputs[1].CharLimit = 5
 	inputs[1].PromptStyle = greenPromptStyle
 
-	// 3. Initialisation de la liste des shells
 	items := make([]list.Item, len(shells))
 	for i, s := range shells {
 		items[i] = s
 	}
 
 	delegate := list.NewDefaultDelegate()
-	// Applique la couleur focus aux éléments sélectionnés de la liste
 	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.Foreground(FocusBorderColor).BorderForeground(FocusBorderColor)
 	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.Foreground(FocusBorderColor).BorderForeground(FocusBorderColor)
 
@@ -105,13 +157,15 @@ func initialModel() Model {
 	shellList.SetHeight(8)
 
 	return Model{
-		Inputs:        inputs,
-		ActiveBlock:   0,
-		InputIndex:    0,
-		ShellList:     shellList,
-		Shells:        shells,
-		SelectedShell: shells[0],
-		Encoding:      None,
+		Inputs:           inputs,
+		ActiveBlock:      0,
+		InputIndex:       0,
+		ShellList:        shellList,
+		Shells:           shells,
+		SelectedShell:    shells[0],
+		Encoding:         None,
+		Interfaces:       netIfaces, // Stockage des interfaces
+		CurrentInterface: 0,
 	}
 }
 

@@ -1,48 +1,52 @@
-// style_constants.go
-
 package main
 
 import "github.com/charmbracelet/lipgloss"
 
 // --- Styles et Constantes Globales ---
 
-// GeneralSpacing est la marge et le padding standard (doit être déclaré en premier)
 var GeneralSpacing = 2
 
-// Définitions des couleurs pour Focus/Inactive
+// --- Palette de Couleurs Dynamique (ANSI) ---
+// En utilisant les strings "0" à "15", Lipgloss utilise la palette du terminal de l'utilisateur.
+
 var (
-	FocusBorderColor    = lipgloss.Color("205") // Violet/Magenta pour l'état actif
-	InactiveBorderColor = lipgloss.Color("250") // Gris clair pour l'état inactif
+	// 5 = Magenta (souvent utilisé pour la sélection/focus)
+	FocusBorderColor = lipgloss.Color("5")
+
+	// 8 = Bright Black (Gris foncé, idéal pour les bordures inactives)
+	InactiveBorderColor = lipgloss.Color("8")
 )
 
-// --- Palette de Couleurs (Nerd Fonts friendly) ---
 var (
-	FocusColor    = lipgloss.Color("205") // Violet/Magenta
-	InactiveColor = lipgloss.Color("250") // Gris clair
-	GreenColor    = lipgloss.Color("43")  // Vert Matrix
-	SubTextColor  = lipgloss.Color("241") // Gris foncé
-	WhiteColor    = lipgloss.Color("#FFFDF5")
+	FocusColor    = lipgloss.Color("5")  // Magenta standard
+	InactiveColor = lipgloss.Color("8")  // Gris standard
+	GreenColor    = lipgloss.Color("2")  // Vert standard
+	SubTextColor  = lipgloss.Color("8")  // Gris pour les textes secondaires
+	WhiteColor    = lipgloss.Color("15") // Blanc brillant
 )
+
 var (
 	appStyle = lipgloss.NewStyle().Padding(GeneralSpacing)
 
-	// titleStyle: Style standard pour un titre normal sur fond coloré (en haut du bloc).
+	// titleStyle: Utilise le vert du terminal.
+	// On met le texte en noir (0) pour assurer le contraste sur le fond vert (2).
 	titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFDF5")).
-			Background(lipgloss.Color("#25A065")). // Sera écrasé par la couleur du focus
+			Foreground(lipgloss.Color("0")).
+			Background(GreenColor).
 			Bold(true).
 			Padding(0, 1)
 
-	// baseBlockStyle: Utilise la bordure normale et le padding interne.
+	// baseBlockStyle: Bordures épaisses + Couleurs ANSI
 	baseBlockStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.ThickBorder()).
 			Padding(0, GeneralSpacing)
 
-	labelStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).MarginTop(1)
+	labelStyle = lipgloss.NewStyle().Foreground(SubTextColor).MarginTop(1)
 
 	// Styles pour les options d'encodage
-	activeOptionStyle   = lipgloss.NewStyle().Foreground(FocusBorderColor).Bold(true)
-	inactiveOptionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	activeOptionStyle   = lipgloss.NewStyle().Foreground(FocusColor).Bold(true)
+	inactiveOptionStyle = lipgloss.NewStyle().Foreground(InactiveColor)
+
 	// Pied de page (Barre de statut)
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(SubTextColor).
