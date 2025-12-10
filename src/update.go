@@ -21,7 +21,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.Inputs[1].Blur()
 			} else {
 				m.ActiveBlock = 0
-				m.Inputs[m.InputIndex].Focus()
+				// Retourne au dernier input actif ou au premier
+				if m.InputIndex < 2 {
+					m.Inputs[m.InputIndex].Focus()
+				}
 			}
 			return m, nil
 
@@ -32,32 +35,63 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.ActiveBlock == 0 {
+			// --- LOGIQUE BLOC CONFIG ---
 			switch msg.String() {
 
-			// Cycle à travers les interfaces (IP + Nom)
+			// Navigation verticale (IP -> Port -> Listener)
+			case "up", "shift+tab":
+				m.InputIndex--
+				if m.InputIndex < 0 {
+					m.InputIndex = 0
+				}
+			case "down", "enter", "tab":
+				m.InputIndex++
+				if m.InputIndex > 2 { // On a maintenant 3 champs (0, 1, 2)
+					m.InputIndex = 2
+				}
+
+			// Actions spécifiques selon le champ
 			case "ctrl+n":
+				// Cycle IP seulement si on est sur l'Input 0
 				if m.InputIndex == 0 && len(m.Interfaces) > 0 {
 					m.CurrentInterface = (m.CurrentInterface + 1) % len(m.Interfaces)
-
 					selectedIface := m.Interfaces[m.CurrentInterface]
-
 					m.Inputs[0].SetValue(selectedIface.IP)
 					m.Inputs[0].SetCursor(len(selectedIface.IP))
 				}
 
-			case "up":
-				m.InputIndex = 0
-			case "down", "enter":
-				m.InputIndex = 1
+			// Gestion du Sélecteur de Listener (Index 2)
+			case "left", "h":
+				if m.InputIndex == 2 {
+					m.ListenerIndex--
+					if m.ListenerIndex < 0 {
+						m.ListenerIndex = len(m.Listeners) - 1
+					}
+				} else {
+					// Propagation standard pour les inputs texte (déplacement curseur)
+					m.updateInputs(msg)
+				}
+			case "right", "l":
+				if m.InputIndex == 2 {
+					m.ListenerIndex = (m.ListenerIndex + 1) % len(m.Listeners)
+				} else {
+					m.updateInputs(msg)
+				}
 			}
 
+			// Focus Management
+			// On désactive tout d'abord
+			m.Inputs[0].Blur()
+			m.Inputs[1].Blur()
+
+			// On active celui qui correspond à l'index
 			if m.InputIndex == 0 {
 				m.Inputs[0].Focus()
-				m.Inputs[1].Blur()
-			} else {
-				m.Inputs[0].Blur()
+			} else if m.InputIndex == 1 {
 				m.Inputs[1].Focus()
 			}
+			// Si InputIndex == 2, aucun textinput n'a le focus, c'est le sélecteur custom qui est "actif" visuellement
+
 		} else {
 			// Bloc Liste (inchangé)
 			switch msg.String() {
@@ -85,8 +119,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ShellList.SetWidth((msg.Width / 2) - 10)
 	}
 
-	cmd := m.updateInputs(msg)
-	cmds = append(cmds, cmd)
+	if m.ActiveBlock == 0 && m.InputIndex == 2 {
+	} else {
+		cmd := m.updateInputs(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }

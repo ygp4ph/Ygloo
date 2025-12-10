@@ -9,8 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// --- Logique Métier ---
-
+// --- Génération du Payload ---
 func (m Model) generatePayload() (string, string) {
 	ip := m.Inputs[0].Value()
 	if ip == "" {
@@ -28,7 +27,6 @@ func (m Model) generatePayload() (string, string) {
 	raw = strings.ReplaceAll(raw, "{port}", port)
 	payload := raw
 
-	// Encoding management
 	switch m.Encoding {
 	case Base64:
 		payload = base64.StdEncoding.EncodeToString([]byte(payload))
@@ -38,12 +36,13 @@ func (m Model) generatePayload() (string, string) {
 		payload = url.QueryEscape(url.QueryEscape(payload))
 	}
 
-	listener := fmt.Sprintf("nc -lvnp %s", port)
+	currentListener := m.Listeners[m.ListenerIndex]
+	listener := strings.ReplaceAll(currentListener.Template, "{port}", port)
+
 	return payload, listener
 }
 
-// --- Helpers de style ---
-
+// --- Rendu Visuel ---
 func renderOption(label string, active bool) string {
 	if active {
 		return activeOptionStyle.Render(label)
@@ -51,62 +50,42 @@ func renderOption(label string, active bool) string {
 	return inactiveOptionStyle.Render(label)
 }
 
-// Rendu unifié du bloc
-func renderBlock(title string, content string, isActive bool, contentWidth, contentHeight int) string {
-
+func renderBlock(content string, isActive bool, contentWidth, contentHeight int) string {
 	style := baseBlockStyle.Copy()
-
-	// Choix de la couleur en fonction de l'état actif
 	borderColor := InactiveBorderColor
 	if isActive {
 		borderColor = FocusBorderColor
 	}
-
 	block := style.
-		BorderForeground(borderColor). // Applique la couleur à la bordure
+		BorderForeground(borderColor).
 		Width(contentWidth).
 		Height(contentHeight).
 		SetString(content)
-
-	// Retourne le bloc
 	return block.Render()
 }
 
-// --- View ---
+// View génère l'interface utilisateur complète
 func (m Model) View() string {
-	// --- CALCUL DES DIMENSIONS STABLES ---
-
 	appDecoration := 2 * GeneralSpacing
-	blockDecorationWidth := 2 * (GeneralSpacing + 1) // Décoration d'un seul bloc (Bordures + Padding)
-
-	// On définit la hauteur du footer
+	blockDecorationWidth := 2 * (GeneralSpacing + 1)
 	footerHeight := 1
-
 	usableWidth := m.Width
 	usableHeight := m.Height - appDecoration
-
-	blockVerticalDecoration := 2 * (GeneralSpacing + 1) // Bordure verticale + Padding
-
-	// 1. CALCUL DES LARGEURS
+	blockVerticalDecoration := 2 * (GeneralSpacing + 1)
 	totalDecorationLoss := (2 * blockDecorationWidth) + GeneralSpacing
 	remainingWidth := usableWidth - totalDecorationLoss
-
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-
 	halfContentWidth := remainingWidth / 2
 	configBlockWidth := halfContentWidth - 8
 	optionsBlockWidth := remainingWidth - configBlockWidth + 3
-
 	if configBlockWidth < 1 {
 		configBlockWidth = 1
 	}
 	if optionsBlockWidth < 1 {
 		optionsBlockWidth = 1
 	}
-
-	// 2. --- CALCUL DYNAMIQUE DE LA HAUTEUR CIBLE (TARGET HEIGHT) ---
 
 	m.ShellList.SetWidth(optionsBlockWidth - (2 * GeneralSpacing))
 
@@ -124,58 +103,65 @@ func (m Model) View() string {
 		encLine,
 	)
 
-	// Calculer la hauteur interne ciblée du contenu
 	listContentHeight := lipgloss.Height(m.ShellList.View())
 	optionsLabelsHeight := lipgloss.Height(labelStyle.Render("Encoding"))
 	encLineHeight := lipgloss.Height(encLine)
-
 	targetContentHeight := listContentHeight + optionsLabelsHeight + encLineHeight + 1
-
 	minStaticHeight := 5
 	if targetContentHeight < minStaticHeight {
 		targetContentHeight = minStaticHeight
 	}
-
 	topRowHeight := targetContentHeight + blockVerticalDecoration
 
-	// --- Bloc 1 : Configuration (MODIFIÉ POUR LES INTERFACES) ---
-
-	// 1. On récupère l'IP actuelle du champ texte
+	// Gestion affichage Interface
 	currentIP := m.Inputs[0].Value()
 	interfaceLabel := ""
 	foundIface := false
-
-	// 2. On compare avec nos interfaces détectées
 	for _, iface := range m.Interfaces {
 		if iface.IP == currentIP {
-			// Si on trouve une correspondance, on affiche le nom en vert (ex: "󰈀 eth0")
-			interfaceLabel = lipgloss.NewStyle().Foreground(GreenColor).Render(fmt.Sprintf("󰾲 %s", iface.Name))
+			interfaceLabel = lipgloss.NewStyle().Foreground(GreenColor).Render(fmt.Sprintf("󰈀 %s", iface.Name))
 			foundIface = true
 			break
 		}
 	}
-
-	// 3. Gestion du texte d'aide si on ne trouve pas ou pour rappeler le raccourci
 	if !foundIface && len(m.Interfaces) > 0 {
 		interfaceLabel = labelStyle.Render("(Ctrl+n: Switch Interface)")
-	} else if !foundIface {
-		interfaceLabel = labelStyle.Render("(No network interfaces detected)")
+	} else if foundIface && len(m.Interfaces) > 1 {
+		interfaceLabel += labelStyle.Render("")
+	}
+	// Gestion affichage Sélecteur de Listener
+	isListenerActive := m.ActiveBlock == 0 && m.InputIndex == 2
+	lName := m.Listeners[m.ListenerIndex].Name
+	arrowLeft := " "
+	arrowRight := " "
+	listenerStyle := lipgloss.NewStyle().Foreground(WhiteColor)
+
+	if isListenerActive {
+		listenerStyle = lipgloss.NewStyle().Foreground(FocusColor).Bold(true)
+		arrowLeft = "< "
+		arrowRight = " >"
 	}
 
+	listenerSelector := fmt.Sprintf("%s%s%s",
+		lipgloss.NewStyle().Foreground(SubTextColor).Render(arrowLeft),
+		listenerStyle.Render(lName),
+		lipgloss.NewStyle().Foreground(SubTextColor).Render(arrowRight),
+	)
+	// Contenu du bloc configuration
 	configContent := lipgloss.JoinVertical(
 		lipgloss.Left,
-		labelStyle.Render("Listenner settings\n"),
+		labelStyle.Render("\nListener settings\n"),
 		m.Inputs[0].View(),
 		interfaceLabel,
-		labelStyle.Render("\n"),
-		m.Inputs[1].View(),
-		labelStyle.Render("(Default: 9001)"),
-	)
 
+		m.Inputs[1].View(),
+
+		labelStyle.Render("\nTool Selection"),
+		listenerSelector,
+	)
+	// Ajustement hauteur bloc config
 	currentConfigHeight := lipgloss.Height(configContent)
 	verticalPaddingToAdd := targetContentHeight - currentConfigHeight
-
-	// CORRECTION ICI : On retire 1 au padding pour éviter le saut de ligne fantôme
 	safePadding := verticalPaddingToAdd - 1
 	if safePadding < 0 {
 		safePadding = 0
@@ -186,26 +172,15 @@ func (m Model) View() string {
 		configContent,
 		strings.Repeat("\n", safePadding),
 	)
-
-	// On passe quand même targetContentHeight au renderBlock,
-	// Lipgloss comblera proprement l'espace restant sans dépasser.
-	configBlock := renderBlock("Configuration", paddedConfigContent, m.ActiveBlock == 0, configBlockWidth, targetContentHeight)
-	// --- Bloc 2 : Payloads & Options ---
-	optionsBlock := renderBlock("Payloads & Options", optionsContent, m.ActiveBlock == 1, optionsBlockWidth, targetContentHeight)
-
-	// 3. CALCUL DE LA HAUTEUR DU BLOC DU BAS (Output Large)
+	// Rendu final des blocs
+	configBlock := renderBlock(paddedConfigContent, m.ActiveBlock == 0, configBlockWidth, targetContentHeight)
+	optionsBlock := renderBlock(optionsContent, m.ActiveBlock == 1, optionsBlockWidth, targetContentHeight)
 	outputContentHeight := usableHeight - topRowHeight - GeneralSpacing - footerHeight
-
 	if outputContentHeight < 1 {
 		outputContentHeight = 1
 	}
-
-	// --- Bloc 3 : Output ---
-
 	payload, listener := m.generatePayload()
-
 	outputContentWidth := usableWidth - blockDecorationWidth
-
 	outputContent := lipgloss.JoinVertical(
 		lipgloss.Left,
 		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#A0C4FF")).Render("\nVICTIM COMMAND :\n"),
@@ -215,29 +190,10 @@ func (m Model) View() string {
 		lipgloss.NewStyle().Foreground(GreenColor).Render(listener),
 		labelStyle.Render("(Ctrl+Y to copy)"),
 	)
-
-	outputFinalBlock := renderBlock("Output (Large Area)", outputContent, false, outputContentWidth, outputContentHeight)
-
-	// --- Assemblage Final ---
-
-	topRow := lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		configBlock,
-		lipgloss.NewStyle().Width(3).Render(""),
-		optionsBlock,
-	)
-
+	outputFinalBlock := renderBlock(outputContent, false, outputContentWidth, outputContentHeight)
+	topRow := lipgloss.JoinHorizontal(lipgloss.Top, configBlock, lipgloss.NewStyle().Width(3).Render(""), optionsBlock)
 	verticalSpacer := lipgloss.NewStyle().Height(1).Width(usableWidth).Render("")
+	helpBar := HelpStyle.Width(m.Width).Align(lipgloss.Center).Render("\n\n 󰌒  Tab : Switch Block   •     Ctrl+Y : Copy Payload   •   󰈆  q : Quit   •   󰀂  Ctrl+n : Switch Interface")
 
-	helpBar := HelpStyle.Render("\n\n 󰌒  Tab: Switch Block   •     Ctrl+y: Copy Payload   •   󰈆  q: Quit   •   󰾲  Ctrl+n: Switch Interface")
-
-	return appStyle.Render(
-		lipgloss.JoinVertical(
-			lipgloss.Left,
-			topRow,
-			verticalSpacer,
-			outputFinalBlock,
-			helpBar,
-		),
-	)
+	return appStyle.Render(lipgloss.JoinVertical(lipgloss.Left, topRow, verticalSpacer, outputFinalBlock, helpBar))
 }

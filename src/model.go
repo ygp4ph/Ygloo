@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// --- Structures ---
+// --- Modèles ---
 
 type Shell struct {
 	Name    string   `json:"name"`
@@ -40,12 +40,17 @@ const (
 	DoubleURL
 )
 
-// NOUVELLE STRUCTURE : Pour stocker le nom de la carte et son IP
 type NetworkInterface struct {
 	Name string
 	IP   string
 }
 
+type Listener struct {
+	Name     string
+	Template string
+}
+
+// --- Modèle principal ---
 type Model struct {
 	Inputs []textinput.Model
 
@@ -57,25 +62,23 @@ type Model struct {
 	SelectedShell Shell
 	Encoding      EncodingType
 
-	// Modification ici : On stocke des objets NetworkInterface au lieu de strings
 	Interfaces       []NetworkInterface
 	CurrentInterface int
+
+	Listeners     []Listener
+	ListenerIndex int
 
 	Width  int
 	Height int
 }
 
 // --- Helpers ---
-
-// getNetworkInterfaces scanne les cartes et retourne le couple (Nom, IP)
 func getNetworkInterfaces() []NetworkInterface {
 	var results []NetworkInterface
-
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return []NetworkInterface{{Name: "lo", IP: "127.0.0.1"}}
 	}
-
 	for _, i := range ifaces {
 		addrs, err := i.Addrs()
 		if err != nil {
@@ -89,17 +92,11 @@ func getNetworkInterfaces() []NetworkInterface {
 			case *net.IPAddr:
 				ip = v.IP
 			}
-			// On garde IPv4 et on ignore loopback pour l'affichage principal (sauf si rien d'autre)
 			if ip != nil && ip.To4() != nil && !ip.IsLoopback() {
-				results = append(results, NetworkInterface{
-					Name: i.Name,
-					IP:   ip.String(),
-				})
+				results = append(results, NetworkInterface{Name: i.Name, IP: ip.String()})
 			}
 		}
 	}
-
-	// Fallback si rien trouvé (offline)
 	if len(results) == 0 {
 		results = append(results, NetworkInterface{Name: "local", IP: "127.0.0.1"})
 	}
@@ -122,23 +119,21 @@ func initialModel() Model {
 		os.Exit(1)
 	}
 
-	// 2. Détection des Interfaces
 	netIfaces := getNetworkInterfaces()
 	defaultIface := netIfaces[0]
 
-	// 3. Initialisation des inputs
 	inputs := make([]textinput.Model, 2)
 	inputs[0] = textinput.New()
 	inputs[0].Placeholder = "10.10.10.10"
-	inputs[0].SetValue(defaultIface.IP) // Valeur par défaut
+	inputs[0].SetValue(defaultIface.IP)
 	inputs[0].Focus()
-	inputs[0].Prompt = "Listener IP: "
+	inputs[0].Prompt = "Listener IP : "
 	inputs[0].CharLimit = 15
 	inputs[0].PromptStyle = greenPromptStyle
 
 	inputs[1] = textinput.New()
 	inputs[1].Placeholder = "9001"
-	inputs[1].Prompt = "Listener Port: "
+	inputs[1].Prompt = "Listener Port : "
 	inputs[1].CharLimit = 5
 	inputs[1].PromptStyle = greenPromptStyle
 
@@ -156,6 +151,16 @@ func initialModel() Model {
 	shellList.SetShowTitle(false)
 	shellList.SetHeight(8)
 
+	listeners := []Listener{
+		{Name: "netcat (nc)", Template: "nc -lvnp {port}"},
+		{Name: "ncat", Template: "ncat -lvnp {port}"},
+		{Name: "ncat (ssl)", Template: "ncat --ssl -lvnp {port}"},
+		{Name: "socat", Template: "socat -d -d TCP-LISTEN:{port} STDOUT"},
+		{Name: "rustcat", Template: "rcat -lp {port}"},
+		{Name: "pwncat", Template: "python3 -m pwncat.cx.bind 0.0.0.0:{port}"},
+		{Name: "powercat (Win)", Template: "powercat -l -p {port}"},
+	}
+
 	return Model{
 		Inputs:           inputs,
 		ActiveBlock:      0,
@@ -164,8 +169,10 @@ func initialModel() Model {
 		Shells:           shells,
 		SelectedShell:    shells[0],
 		Encoding:         None,
-		Interfaces:       netIfaces, // Stockage des interfaces
+		Interfaces:       netIfaces,
 		CurrentInterface: 0,
+		Listeners:        listeners,
+		ListenerIndex:    0,
 	}
 }
 
