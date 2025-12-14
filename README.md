@@ -11,7 +11,7 @@
 
 </div>
 
-## 🚀 Fonctionnalités
+## Fonctionnalités
 
 - **Interface TUI** moderne et intuitive (Bubble Tea)
 - **30+ Reverse Shells** (Bash, Python, PHP, PowerShell, Netcat...)
@@ -19,7 +19,7 @@
 - **Encodage** à la volée (Base64, URL, Double URL)
 - **Zero Config** : Tout est inclus dans le binaire unique
 
-## 📦 Installation
+## Installation
 
 ```bash
 git clone https://github.com/ygp4ph/Ygloo
@@ -28,7 +28,7 @@ go build -o Ygloo
 ./Ygloo
 ```
 
-## 🎮 Utilisation
+## Utilisation
 
 - **Tab** : Changer de panneau
 - **Fléches / hjkl** : Naviguer
